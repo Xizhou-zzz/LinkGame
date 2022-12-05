@@ -1,0 +1,24 @@
+<RCC>
+    <qresource prefix="/">
+        <file>C:/Users/86180/Desktop/images/0.png</file>
+        <file>C:/Users/86180/Desktop/images/1.png</file>
+        <file>C:/Users/86180/Desktop/images/2.png</file>
+        <file>C:/Users/86180/Desktop/images/3.png</file>
+        <file>C:/Users/86180/Desktop/images/4.png</file>
+        <file>C:/Users/86180/Desktop/images/5.png</file>
+        <file>C:/Users/86180/Desktop/images/6.png</file>
+        <file>C:/Users/86180/Desktop/images/7.png</file>
+        <file>C:/Users/86180/Desktop/images/8.png</file>
+        <file>C:/Users/86180/Desktop/images/9.png</file>
+        <file>C:/Users/86180/Desktop/images/10.png</file>
+        <file>C:/Users/86180/Desktop/images/11.png</file>
+        <file>C:/Users/86180/Desktop/images/12.png</file>
+        <file>C:/Users/86180/Desktop/images/13.png</file>
+        <file>C:/Users/86180/Desktop/images/14.png</file>
+        <file>C:/Users/86180/Desktop/images/15.png</file>
+        <file>C:/Users/86180/Desktop/images/line.png</file>
+        <file>C:/Users/86180/Desktop/images/turn.png</file>
+        <file>C:/Users/86180/Desktop/sound/click.wav</file>
+        <file>C:/Users/86180/Desktop/sound/background.wav</file>
+    </qresource>
+</RCC>
