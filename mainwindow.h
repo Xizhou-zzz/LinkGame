@@ -1,7 +1,6 @@
 //最新更新时间：2022/12/8
-//作者：张凯歌
+//作者：张凯歌，田佳文，王彦博，杨文娟
 /*作用：
- * 2022/12/5
  * 图形界面；
    背景音乐，消除音效，可控制背景音乐的开关；
    随机生成游戏；
@@ -10,10 +9,6 @@
    奖励时间：成功消除6对图片后，对应就会增加一定的奖励时间3s；
    手动重置：将剩下图片重置游戏，重置次数限制为2，如果重置前有解则需要扣减5分；
    游戏控制：开始前选择难度、结束后显示分数并可选择继续新的游戏、游戏可暂停；
-   2022/12/8
-   分数统计：将剩余时间转换为分数并加到总分数中；
-   游戏逻辑完善：暂停游戏后，不可选择重置和提示;
-
  * */
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
@@ -24,13 +19,14 @@
 #include <QInputDialog>
 #include <QDebug>
 #include <QTime>
-
 #include <QTimer>
 #include <QMessageBox>
 #include <QSoundEffect>
 #include <QTransform>
 #include <vector>
-
+#include <iostream>
+#include "logwidget.h"
+#include "dialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -122,7 +118,14 @@ private:
     //判断是否有解
     bool judge(LinkPoints&,bool);
 
+    // 登录界面类的对象作为指针
+    LogWidget * m_log;
+
+    //打开查询界面
+    Dialog *dia = new Dialog();
 private slots:
+    //游戏初始化
+    void init();
     //游戏判定
     void btnsClicked();
     //时间判定
@@ -135,5 +138,7 @@ private slots:
     void on_continueGame_clicked();
     void on_reset_clicked();
     void on_hint_clicked();
+    void on_pushButton_clicked();
 };
 #endif // MAINWINDOW_H
+
