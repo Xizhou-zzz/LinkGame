@@ -1,14 +1,19 @@
-//最新更新时间：2022/12/5
+//最新更新时间：2022/12/8
 //作者：张凯歌
 /*作用：
+ * 2022/12/5
  * 图形界面；
-   背景音乐；
+   背景音乐，消除音效，可控制背景音乐的开关；
    随机生成游戏；
    得分统计：消除成功，奖励分数10；
    限次提示：陷入困境时，按提示按钮可以显示当前可消除的一对图片，每一局有使用次数限制为2
    奖励时间：成功消除6对图片后，对应就会增加一定的奖励时间3s；
    手动重置：将剩下图片重置游戏，重置次数限制为2，如果重置前有解则需要扣减5分；
-   游戏控制：开始前选择难度、结束后显示分数并可选择继续新的游戏、游戏可暂停；✔
+   游戏控制：开始前选择难度、结束后显示分数并可选择继续新的游戏、游戏可暂停；
+   2022/12/8
+   分数统计：将剩余时间转换为分数并加到总分数中；
+   游戏逻辑完善：暂停游戏后，不可选择重置和提示;
+
  * */
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -136,6 +141,8 @@ void MainWindow::clearStage()
 
     //设置游戏未开始
     isStarted = false;
+    //游戏未暂停
+    stop = false;
     //设置时间进度条和分数显示
     gameTime = 100;
     ui->progressBar->setValue(gameTime);
@@ -149,6 +156,8 @@ void MainWindow::clearStage()
 //设置游戏
 void MainWindow::setStage()
 {
+    //游戏未暂停
+    stop = false;
     //初始化时间
     gameTime = 100;
     ui->progressBar->setValue(gameTime);
@@ -359,6 +368,12 @@ void MainWindow::btnsClicked()
 
         //游戏结束
         if (remains<=0) {
+            //暂停时间
+            pTimer->stop();
+            //剩余时间算到总分中
+            score+=gameTime;
+            ui->lcdNumber->display(score);
+            //提示信息
             QString scoreStr = QString::number(score);
             QString tip = "恭喜你通过本关！并获得"+scoreStr+"分\n要再来一局吗？";
             QMessageBox::StandardButton result =
@@ -678,6 +693,8 @@ void MainWindow::on_stopGame_clicked()
     }
     //计时停止
     pTimer->stop();
+    //设置标记
+    stop = true;
 }
 
 
@@ -695,125 +712,146 @@ void MainWindow::on_continueGame_clicked()
     }
     //计时继续
     pTimer->start();
+    //设置标记
+    stop = false;
 
 }
 
 
 void MainWindow::on_reset_clicked()
 {
-    //可重置次数大于0
-    if(reset >0)
+    if(stop)
     {
-        //判断当前是否有解
-        LinkPoints tempPoint;
-        //有解则扣分
-        if(judge(tempPoint,true))
+        //发出提示信息
+        QMessageBox::critical(this, tr("Tips"), tr("当前游戏已暂停！"));
+    }else
+    {
+        //可重置次数大于0
+        if(reset >0)
         {
-            score-=5;
-            ui->lcdNumber->display(score);
-            //画线
-            drawLines(tempPoint);
-
-        }
-
-        //获得并且存储每个格子的图片类型
-       std::vector<int> temp;
-       for(int i =0;i<=hb+1;i++)
-       {
-           for(int j =0;j<=wb+1;j++)
-           {
-               //空白图片不变
-               if(types[i][j]!=0)
-               {
-                   temp.push_back(types[i][j]);
-               }
-
-           }
-       }
-       //图片类型随机排序
-        random_shuffle (temp.begin(), temp.end());
-
-        //重新设置每个格子的图片类型
-        for(int i=0;i<=hb+1;i++)
-        {
-            for(int j=0;j<=wb+1;j++)
+            //判断当前是否有解
+            LinkPoints tempPoint;
+            //有解则扣分
+            if(judge(tempPoint,true))
             {
-                if(types[i][j]!=0)
+                score-=5;
+                ui->lcdNumber->display(score);
+                //画线
+                drawLines(tempPoint);
+
+            }
+
+            //获得并且存储每个格子的图片类型
+           std::vector<int> temp;
+           for(int i =0;i<=hb+1;i++)
+           {
+               for(int j =0;j<=wb+1;j++)
+               {
+                   //空白图片不变
+                   if(types[i][j]!=0)
+                   {
+                       temp.push_back(types[i][j]);
+                   }
+
+               }
+           }
+           //图片类型随机排序
+            random_shuffle (temp.begin(), temp.end());
+
+            //重新设置每个格子的图片类型
+            for(int i=0;i<=hb+1;i++)
+            {
+                for(int j=0;j<=wb+1;j++)
                 {
-                    types[i][j] = temp[temp.size()-1];
-                    temp.pop_back();
-                    buttons[i][j] ->setIcon(icons[types[i][j]]);
-                    //重新布局
-                    ui->gridLayout->addWidget(buttons[i][j],i, j, 1, 1,Qt::AlignCenter | Qt::AlignHCenter);
+                    if(types[i][j]!=0)
+                    {
+                        types[i][j] = temp[temp.size()-1];
+                        temp.pop_back();
+                        buttons[i][j] ->setIcon(icons[types[i][j]]);
+                        //重新布局
+                        ui->gridLayout->addWidget(buttons[i][j],i, j, 1, 1,Qt::AlignCenter | Qt::AlignHCenter);
+                    }
                 }
             }
-        }
-        reset--;
-        ui->resetChoice->setText(QString::number(reset));
-    }else
-        //无重置次数，发出提示信息
-    {
-        QMessageBox::critical(this, tr("Tips"), tr("重置次数已用尽！"));
+            reset--;
+            ui->resetChoice->setText(QString::number(reset));
+        }else
+            //无重置次数，发出提示信息
+        {
+            QMessageBox::critical(this, tr("Tips"), tr("重置次数已用尽！"));
 
+        }
     }
+
 
 }
 
 //判断当前是否有解
 bool MainWindow::judge(LinkPoints& temp,bool flag)
 {
-    //提示次数大于0
-    //flag为重置时进行判断有解
-    if(hint>0 || flag)
+    if(stop)
     {
-        if(!flag)
+        //发出提示信息
+        QMessageBox::critical(this, tr("Tips"), tr("当前游戏已暂停！"));
+        //返回false
+        return false;
+
+    }else
+    {
+        //提示次数大于0
+        //flag为重置时进行判断有解
+        if(hint>0 || flag)
         {
-            hint--;
-            ui->hintChoice->setText(QString::number(hint));
-        }
+            if(!flag)
+            {
+                hint--;
+                ui->hintChoice->setText(QString::number(hint));
+            }
 
-        //遍历
-         for(int i=0;i<=hb+1;i++)
-         {
-             for(int j=0;j<=wb+1;j++)
+            //遍历
+             for(int i=0;i<=hb+1;i++)
              {
-                 //不为空图片
-                 if(types[i][j]!=0)
+                 for(int j=0;j<=wb+1;j++)
                  {
-                     //重新遍历
-                     for(int x =0;x<=hb+1 ;x++)
+                     //不为空图片
+                     if(types[i][j]!=0)
                      {
-                         for(int y=0;y<=wb+1;y++)
+                         //重新遍历
+                         for(int x =0;x<=hb+1 ;x++)
                          {
-                             //跳过同个图片
-                             if(x==i&&y==j)
-                                 continue;
-                             //找到相同图片
-                             if(types[i][j] == types[x][y])
+                             for(int y=0;y<=wb+1;y++)
                              {
-                                 //判断是否有解
-                                 if  (   oneLine(i, j, x, y, temp)
-                                       || twoLine(i, j, x, y, temp)
-                                       || threeLine(i, j, x, y, temp))
+                                 //跳过同个图片
+                                 if(x==i&&y==j)
+                                     continue;
+                                 //找到相同图片
+                                 if(types[i][j] == types[x][y])
                                  {
-                                     //有解返回true
-                                     return true;
-                                 }
+                                     //判断是否有解
+                                     if  (   oneLine(i, j, x, y, temp)
+                                           || twoLine(i, j, x, y, temp)
+                                           || threeLine(i, j, x, y, temp))
+                                     {
+                                         //有解返回true
+                                         return true;
+                                     }
 
+                                 }
                              }
                          }
                      }
                  }
              }
-         }
-         //无解返回false
-         return false;
-    }else
-        //无提示次数
-    {
-        //发出提示信息
-        QMessageBox::critical(this, tr("Tips"), tr("提示次数已用尽！"));
-        return false;
+             //无解返回false
+             return false;
+        }else
+            //无提示次数
+        {
+            //发出提示信息
+            QMessageBox::critical(this, tr("Tips"), tr("提示次数已用尽！"));
+            return false;
+        }
+
     }
 
 
