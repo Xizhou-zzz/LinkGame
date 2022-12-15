@@ -4,16 +4,18 @@
  * 图形界面；
    背景音乐；
    随机生成游戏；
+   游戏难度分级；
    得分统计：消除成功，奖励分数10；
    限次提示：陷入困境时，按提示按钮可以显示当前可消除的一对图片，每一局有使用次数限制为2
    奖励时间：成功消除6对图片后，对应就会增加一定的奖励时间3s；
    手动重置：将剩下图片重置游戏，重置次数限制为2，如果重置前有解则需要扣减5分；
    游戏控制：开始前选择难度、结束后显示分数并可选择继续新的游戏、游戏可暂停；
-
    分数统计：将剩余时间转换为分数并加到总分数中；
-   游戏逻辑完善：暂停游戏后，不可选择重置和提示;
-
-   自动重置：即每一次消去后判断是否有解，无解，且剩重置次数，重置，无重置次数，游戏结束，剩余时间不会加到分数
+   游戏逻辑完善：暂停游戏后，不可选择重置和提示；
+   游戏界面的整合与完善；
+   僵局自动判定和自动重置；
+   自动解题并且动画演示；
+   界面美化；
  * */
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -23,14 +25,9 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    // 通过指针创建登录界面类的对象
-    m_log = new LogWidget;
-    // 调用登录窗口的show()函数显示登录界面
-    m_log->show();
+    init();
+    show();
 
-    // 建立信号槽，到接收到登录界面发来的login()信号后，调用主窗口的show(),init()函数。
-    connect(m_log,SIGNAL(login()),this,SLOT(init()));
-    connect(m_log,SIGNAL(login()),this,SLOT(show()));
 }
 
 MainWindow::~MainWindow()
@@ -41,8 +38,6 @@ MainWindow::~MainWindow()
 void MainWindow::init(){
     //设置标题
     setWindowTitle("连连看");
-    //初始化难度
-    getDifficulty();
 
     //初始化图片和音效
     buttons = nullptr;
@@ -84,31 +79,17 @@ void MainWindow::init(){
    //清理场景
    clearStage();
 
-   //设置场景
-   setStage();
 }
 
 //难度设置
 void MainWindow::getDifficulty()
 {
-    //难度种类
-    QStringList difficulty;
-    difficulty<<"简单"<<"普通"<<"困难";
-    //难度选择
-    QString title = "难度选择";
-    QString text = "选择您想挑战的难度：";
-    bool sure =  false;
 
-    //默认为普通难度
-    QString selection = QInputDialog::getItem(this,title,text,difficulty,1,false,&sure);
 
-    if(!sure)
-        exit(0);
-
-    if(selection=="简单")
+    if(difficulty=="简单")
     {
         setDifficulty(6,6,8);
-    }else if(selection =="困难")
+    }else if(difficulty =="困难")
     {
         setDifficulty(10,14,15);
     }else
@@ -163,6 +144,7 @@ void MainWindow::clearStage()
 //设置游戏
 void MainWindow::setStage()
 {
+    isStarted = true;
     //游戏未暂停
     stop = false;
     //初始化时间
@@ -229,6 +211,7 @@ void MainWindow::setStage()
         for(int j =0;j<=wb+1;j++)
         {
             buttons[i][j] = new QPushButton;
+
             //边界设置为空白
             if(i==0||j==0||i==hb+1||j==wb+1)
             {
@@ -264,18 +247,14 @@ void MainWindow::onTimeOut()
     if(gameTime<=0)
     {
         gameTime = 0;
+        pTimer->stop();
         ui->progressBar->setValue(gameTime);
         QString scoreStr = QString::number(score);
         m_log->data->insertPoint(m_log->str1,scoreStr);//插入游戏结束数据
-        QString tip = "很遗憾您失败了！并获得"+scoreStr+"分\n要再来一局吗？";
-        QMessageBox::StandardButton result =
-                QMessageBox::question(this, "落败",
-                              tip,
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::NoButton);
-        if(result==QMessageBox::No)
-            exit(0);
-        newGame();
+        QString tip = "很遗憾您失败了！并获得"+scoreStr+"分";
+        isStarted = false;
+        QMessageBox::information(this,"游戏结束",tip ,QMessageBox::Ok | QMessageBox::Cancel,
+                                 QMessageBox::Ok);
     }
 }
 
@@ -324,11 +303,8 @@ void MainWindow::btnsClicked()
             || twoLine(lastClickedH, lastClickedW, thisH, thisW, lp)
             || threeLine(lastClickedH, lastClickedW, thisH, thisW, lp))
     {
-        //如果没有开始游戏，就开始游戏。同时开始计时
-        if(!isStarted)
-        {
-            isStarted = true;
-        }
+
+
 
         //点击音效
         clickSound.play();
@@ -369,84 +345,22 @@ void MainWindow::btnsClicked()
 
         //修改进度
         remains -= 2;
+        sendSig();
 
-
-
-        //判断三次，因为一次重置还有可能是重置
-        if(remains > 0){
+        //循环判断，直到重置有解
+        if(remains >0)
+        {
             //判断当前是否有解
             LinkPoints tempPoint;
-            //自动判定是否有解
-            if(!judge(tempPoint,true)){
-                if(hint > 0){
-                    on_reset_clicked();
-                    QMessageBox::about(NULL, "无解", "已重置");
-                    //自动判定是否有解
-                    if(!judge(tempPoint,true)){
-                        if(hint > 0){
-                            on_reset_clicked();
-                            QMessageBox::about(NULL, "无解", "已重置");
-                            if(!judge(tempPoint,true)){
-                                if(hint > 0){
-                                    on_reset_clicked();
-                                    QMessageBox::about(NULL, "无解", "已重置");
-                                }else{
-                                    QMessageBox::about(NULL, "无解", "重置次数已用尽");
-                                    //暂停时间
-                                    pTimer->stop();
-                                    ui->lcdNumber->display(score);
-                                    QString scoreStr = QString::number(score);
-                                    m_log->data->insertPoint(m_log->str1,scoreStr);//插入游戏结束数据
-                                    QString tip = "很遗憾您失败了！并获得"+scoreStr+"分\n要再来一局吗？";
-                                    QMessageBox::StandardButton result =
-                                            QMessageBox::question(this, "落败",
-                                                          tip,
-                                                          QMessageBox::Yes | QMessageBox::No,
-                                                          QMessageBox::NoButton);
-                                    if(result==QMessageBox::No)
-                                        exit(0);
-                                }
-                            }
-                        }else{
-                            QMessageBox::about(NULL, "无解", "重置次数已用尽");
-                            //暂停时间
-                            pTimer->stop();
-                            ui->lcdNumber->display(score);
-                            QString scoreStr = QString::number(score);
-                            m_log->data->insertPoint(m_log->str1,scoreStr);//插入游戏结束数据
-                            QString tip = "很遗憾您失败了！并获得"+scoreStr+"分\n要再来一局吗？";
-                            QMessageBox::StandardButton result =
-                                    QMessageBox::question(this, "落败",
-                                                  tip,
-                                                  QMessageBox::Yes | QMessageBox::No,
-                                                  QMessageBox::NoButton);
-                            if(result==QMessageBox::No)
-                                exit(0);
-                        }
-                    }
-                }else{
-                    QMessageBox::about(NULL, "无解", "重置次数已用尽");
-                    //暂停时间
-                    pTimer->stop();
-                    ui->lcdNumber->display(score);
-                    QString scoreStr = QString::number(score);
-                    m_log->data->insertPoint(m_log->str1,scoreStr);//插入游戏结束数据
-                    QString tip = "很遗憾您失败了！并获得"+scoreStr+"分\n要再来一局吗？";
-                    QMessageBox::StandardButton result =
-                            QMessageBox::question(this, "落败",
-                                          tip,
-                                          QMessageBox::Yes | QMessageBox::No,
-                                          QMessageBox::NoButton);
-                    if(result==QMessageBox::No)
-                        exit(0);
-                }
+            while(!judge(tempPoint,true))
+            {
+                reset ++;
+                on_reset_clicked();
+                if(judge(tempPoint,true))
+                   QMessageBox::about(NULL, "无解", "已重置");
             }
 
         }
-
-
-
-
 
 
 
@@ -459,15 +373,10 @@ void MainWindow::btnsClicked()
             ui->lcdNumber->display(score);
             QString scoreStr = QString::number(score);
             m_log->data->insertPoint(m_log->str1,scoreStr);//插入游戏结束数据
-            QString tip = "恭喜你通过本关！并获得"+scoreStr+"分\n要再来一局吗？";
-            QMessageBox::StandardButton result =
-                    QMessageBox::question(this, "成功",
-                                  tip,
-                                  QMessageBox::Yes | QMessageBox::No,
-                                  QMessageBox::NoButton);
-            if(result==QMessageBox::No)
-                exit(0);
-            newGame();
+            QString tip = "恭喜您通过游戏！并获得"+scoreStr+"分";
+            isStarted = false;
+            QMessageBox::information(this,"游戏结束",tip ,QMessageBox::Ok | QMessageBox::Cancel,
+                                     QMessageBox::Ok);
         }
     }
     else {
@@ -763,16 +672,20 @@ void MainWindow::on_openBGM_clicked()
 
 void MainWindow::on_stopGame_clicked()
 {
-    //暂停游戏，图片全部设置为空白
-    for(int i =0;i<=hb+1;i++)
+    if(isStarted)
     {
-        for(int j =0;j<=wb+1;j++)
+        //暂停游戏，图片全部设置为空白
+        for(int i =0;i<=hb+1;i++)
         {
-            buttons[i][j] ->setIcon(icons[0]);
-            //重新布局
-            ui->gridLayout->addWidget(buttons[i][j],i, j, 1, 1,Qt::AlignCenter | Qt::AlignHCenter);
+            for(int j =0;j<=wb+1;j++)
+            {
+                buttons[i][j] ->setIcon(icons[0]);
+                //重新布局
+                ui->gridLayout->addWidget(buttons[i][j],i, j, 1, 1,Qt::AlignCenter | Qt::AlignHCenter);
+            }
         }
     }
+
     //计时停止
     pTimer->stop();
     //设置标记
@@ -937,15 +850,275 @@ void MainWindow::on_hint_clicked()
         //画线
         drawLines(temp);
     }else{
-        QMessageBox::about(NULL, "无解", "无解");
+
     }
 }
 
-//数据库读取数据
+
 void MainWindow::on_pushButton_clicked()
 {
-    dia->open();
-    on_stopGame_clicked();
+    if(isLogin)
+    {
+        //开始游戏
+        if(isStarted)
+        {
+
+            //暂停时间
+            pTimer->stop();
+            ui->lcdNumber->display(score);
+            QString scoreStr = QString::number(score);
+
+            QString tip = "当前游戏正在进行中！并已获得"+scoreStr+"分\n是否重新开始游戏？";
+            QMessageBox::StandardButton result =
+                    QMessageBox::question(this, "提示",
+                                  tip,
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::NoButton);
+            if(result==QMessageBox::Yes)
+            {
+                difficulty =ui->comboBox->currentText();
+                //设置游戏
+                clearStage();
+                //初始化难度
+                getDifficulty();
+
+                setStage();
+            }
+
+        }else
+        {
+            difficulty =ui->comboBox->currentText();
+            //设置游戏
+            clearStage();
+            //初始化难度
+            getDifficulty();
+
+            setStage();
+
+        }
+
+    }else
+    {
+        QMessageBox::information(this,"提示","请先登录" ,QMessageBox::Ok | QMessageBox::Cancel,
+                                 QMessageBox::Ok);
+    }
+
+
 }
 
+
+//数据库读取数据
+void MainWindow::on_action_triggered()
+{
+
+    if(isLogin)
+    {
+      dia->open();
+    }else
+    {
+        QMessageBox::information(this,"提示","请先登录" ,QMessageBox::Ok | QMessageBox::Cancel,
+                                 QMessageBox::Ok);
+    }
+
+}
+
+//登录
+void MainWindow::on_actionlog_triggered()
+{
+
+
+    if(!isLogin)
+    {
+        // 通过指针创建登录界面类的对象
+        m_log = new LogWidget;
+        // 调用登录窗口的show()函数显示登录界面
+        m_log->show();
+        connect(m_log,SIGNAL(login()),this,SLOT(change()));
+
+
+    }else
+    {
+        QMessageBox::information(this,"状态","当前已登录" ,QMessageBox::Ok | QMessageBox::Cancel,
+                                 QMessageBox::Ok);
+
+    }
+
+}
+
+//改变状态
+void MainWindow::change()
+{
+    isLogin = true;
+}
+
+//状态查询
+void MainWindow::on_action_2_triggered()
+{
+
+    if(isLogin)
+    {
+        QMessageBox::information(this,"状态","当前已登录" ,QMessageBox::Ok | QMessageBox::Cancel,
+                                 QMessageBox::Ok);
+    }else
+    {
+        QMessageBox::information(this,"状态","当前未登录" ,QMessageBox::Ok | QMessageBox::Cancel,
+                                 QMessageBox::Ok);
+    }
+}
+
+
+void MainWindow::on_action_3_triggered()
+{
+    QMessageBox::information(this,"版本","版本号：1.0" ,QMessageBox::Ok | QMessageBox::Cancel,
+                             QMessageBox::Ok);
+}
+
+
+void MainWindow::on_action_4_triggered()
+{
+    QMessageBox::information(this,"信息","2022年专业课程综合实训I第四小组期末大作业---连连看\n小组成员：张凯歌，田佳文，王彦博，杨文娟"
+                             ,QMessageBox::Ok | QMessageBox::Cancel,
+                             QMessageBox::Ok);
+}
+
+
+
+//自动解题
+void MainWindow::on_autoSolve_clicked()
+{
+    //暂停时间
+    pTimer->stop();
+    //游戏结束
+    isStarted = false;
+
+    //有剩余未消除时循环
+         LinkPoints tempPoint;
+          while(remains>0&&judge(tempPoint,true))
+          {
+              drawLines(tempPoint);
+              //起点和终点设置为空图片，并且更新组件
+             types[tempPoint.point[0][0]][tempPoint.point[0][1]] =
+                     types[tempPoint.point[tempPoint.between+1][0]][tempPoint.point[tempPoint.between+1][1]] = 0;
+
+              buttons[tempPoint.point[0][0]][tempPoint.point[0][1]]->setIcon(icons[0]);
+              ui->gridLayout->addWidget( buttons[tempPoint.point[0][0]][tempPoint.point[0][1]],
+                                        tempPoint.point[0][0], tempPoint.point[0][1], 1, 1,
+                                        Qt::AlignCenter | Qt::AlignHCenter);
+
+              buttons[tempPoint.point[tempPoint.between+1][0]][tempPoint.point[tempPoint.between+1][1]]->setIcon(icons[0]);
+              ui->gridLayout->addWidget(buttons[tempPoint.point[tempPoint.between+1][0]][tempPoint.point[tempPoint.between+1][1]],
+                                        tempPoint.point[tempPoint.between+1][0], tempPoint.point[tempPoint.between+1][1], 1, 1,
+                                        Qt::AlignCenter | Qt::AlignHCenter);
+              //修改进度
+              remains -= 2;
+              //无解时则重置到有解
+              while(!judge(tempPoint,true)&&remains !=0)
+              {
+                  //无解状态时，不会扣分
+                  reset ++;
+                  on_reset_clicked();
+              }
+          }
+
+          //剩余时间算到总分中
+          QString tip = "自动解题完成！";
+
+          QMessageBox::information(this,"游戏结束",tip ,QMessageBox::Ok | QMessageBox::Cancel,
+                                   QMessageBox::Ok);
+
+}
+
+void MainWindow::sendRemains()
+{
+     qDebug()<<"???";
+    while(online)
+    {
+        QThread::sleep(3);
+        if(isStarted)
+        {
+                   client->send(remains);
+                   qDebug()<<"??";
+        }
+
+
+    }
+}
+
+//联机对战
+void MainWindow::on_pushButton_2_clicked()
+{
+
+
+    clientWidget *client = new clientWidget();
+    client->set(&remains);
+    client->show();
+    online = true;
+
+    connect(this,SIGNAL(remainsChanged()),client,SLOT(on_sendBtn_clicked()));
+
+}
+
+
+void MainWindow::on_pushButton_3_clicked()
+{
+    t_log = new greenTeach;
+    t_log->show();
+}
+
+
+void MainWindow::on_pushButton_4_clicked()
+{
+    if(isLogin)
+    {
+        vector<int> v1;
+        vector<int> v2;
+        vector<int> v3;
+        vector<int> v4;
+        vector<int> v5;
+        QBarSet *set0 = new QBarSet("次数");
+        v1 = data->searchAll(v1,0,150);
+        v2 = data->searchAll(v2,151,300);
+        v3 = data->searchAll(v3,301,450);
+        v4 = data->searchAll(v4,451,600);
+        v5 = data->searchAll(v5,601,750);
+
+        *set0 << v1.size() << v2.size() << v3.size() << v4.size() << v5.size();
+        QBarSeries *series = new QBarSeries();
+        series->append(set0);
+
+        QChart *chart = new QChart();
+        chart->addSeries(series);
+        chart->setTitle("所有用户数据");
+        chart->setAnimationOptions(QChart::SeriesAnimations);
+
+        QChartView *chartView = new QChartView(chart);
+        chartView->setRenderHint(QPainter::Antialiasing);
+
+        QStringList categories;
+        categories << "0-150分" << "151-300分" << "301-450分" << "451-600分" << "601-750分";
+        QBarCategoryAxis *axisX = new QBarCategoryAxis();
+        axisX->append(categories);
+        chart->addAxis(axisX, Qt::AlignBottom);
+        series->attachAxis(axisX);
+
+        QValueAxis *axisY = new QValueAxis();
+        axisY->setRange(0,24);
+        chart->addAxis(axisY, Qt::AlignLeft);
+        series->attachAxis(axisY);
+
+        chart->legend()->setVisible(true);
+        chart->legend()->setAlignment(Qt::AlignBottom); /* 显示在底部 */
+
+        chartView->setRenderHint(QPainter::Antialiasing);
+        chartView->resize(550, 300);
+        chartView->show();
+        on_stopGame_clicked();
+    }
+    else
+    {
+        QMessageBox::information(this,"提示","请先登录" ,QMessageBox::Ok | QMessageBox::Cancel,
+                                 QMessageBox::Ok);
+    }
+
+}
 

@@ -27,6 +27,10 @@
 #include <iostream>
 #include "logwidget.h"
 #include "dialog.h"
+#include "clientwidget.h"
+#include "greenteach.h"
+#include <QtConcurrent>
+#include <QtCharts>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -40,6 +44,15 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void getDifficulty();
+
+    void sendSig()
+    {
+        emit remainsChanged();     //通过emit关键字发射信号
+    }
+
+signals:                    //使用signals声明信号函数，访问级别为protected
+    void remainsChanged();     //信号只能声明不能定义
+
 
 private:
     //分数
@@ -55,6 +68,12 @@ private:
 
     bool stop;
 
+    bool isLogin = false;
+
+    bool online = false;
+
+    QString difficulty;
+
     Ui::MainWindow *ui;
     //高多少个格子，宽多少个格子
     int hb, wb;
@@ -69,7 +88,7 @@ private:
     //上一个点击的坐标
     int lastClickedH, lastClickedW;
     //剩余多少个格子
-    int remains;
+    int remains = 1;
 
     //连线的图片的数组
     QPixmap imageLine[2], imageTurn[4];
@@ -81,7 +100,7 @@ private:
     QSoundEffect bgm;
 
    //游戏开始标记
-    bool isStarted;
+    bool isStarted = false;
 
 
 
@@ -121,8 +140,17 @@ private:
     // 登录界面类的对象作为指针
     LogWidget * m_log;
 
+    // 指导界面类的对象作为指针
+    greenTeach * t_log;
+
     //打开查询界面
     Dialog *dia = new Dialog();
+
+    clientWidget *client;
+
+    void sendRemains();
+
+    Data *data = new Data();
 private slots:
     //游戏初始化
     void init();
@@ -139,6 +167,18 @@ private slots:
     void on_reset_clicked();
     void on_hint_clicked();
     void on_pushButton_clicked();
+    void on_action_triggered();
+    void on_actionlog_triggered();
+    void on_action_2_triggered();
+    //状态改变
+    void change();
+    void on_action_3_triggered();
+    void on_action_4_triggered();    
+    void on_autoSolve_clicked();
+    void on_pushButton_2_clicked();
+    //新手指导
+    void on_pushButton_3_clicked();
+    //数据分析
+    void on_pushButton_4_clicked();
 };
 #endif // MAINWINDOW_H
-

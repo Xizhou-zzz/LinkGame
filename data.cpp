@@ -129,3 +129,23 @@ vector<int> Data::searchScore(QString str,vector<int> v,int score1,int score2){
     }
     return v;
 }
+
+
+vector<int> Data::searchAll(vector<int> v,int score1,int score2){
+    QSqlQuery sqlQuery;
+    sqlQuery.exec("SELECT * FROM score");
+    if(!sqlQuery.exec())
+    {
+        qDebug() << "Error: Fail to  " << sqlQuery.lastError();
+    }
+    else{
+        while(sqlQuery.next())
+        {
+            int t = sqlQuery.value(0).toInt();
+            int tmp = sqlQuery.value(1).toInt();
+            if(tmp >= score1 && tmp <= score2)
+                v.push_back(tmp);
+        }
+    }
+    return v;
+}

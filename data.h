@@ -24,6 +24,8 @@ public:
     bool search(QString str1);//有相等的返回ture
     //查询用户名为str的用户得分情况
     vector<int> searchScore(QString str,vector<int> v,int score1,int score2);
+    //查询所有用户scor1-scor2的分数
+    vector<int> searchAll(vector<int> v,int score1,int score2);
 private:
      QSqlDatabase database;// 用于建立和数据库的连接
 };
